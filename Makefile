@@ -50,8 +50,12 @@ clean-test: ## remove test and coverage artifacts
 	rm -fr htmlcov/
 	rm -fr .pytest_cache
 
-lint: ## check style with flake8
+format: ## Apply the black code formatter
+	black esm_simulation_repository tests
+
+lint: ## check style with flake8 and black
 	flake8 esm_simulation_repository tests
+	black --check esm_simulation_repository tests
 
 test: ## run tests quickly with the default Python
 	py.test
