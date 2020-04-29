@@ -15,6 +15,7 @@ import sys
 # Third-Party Imports
 import intake
 
+
 def param_file_to_dict(param_file):
     logging.debug("Loading params....")
     params = {}
@@ -76,7 +77,10 @@ class SimulationRepository(object):
             self.base_dir = os.environ.get(
                 "ESM_SIM_REPO_BASE_DIR", "/scratch/simulation_database/incoming/"
             )
+        # Uncategorized experiments:
         self.experiments = []
+        # Cosmos Experiments
+        cosmos_runs = []
         logging.debug("Looking at %s" % self.base_dir)
         for folder in os.listdir(self.base_dir):
             folder = os.path.join(self.base_dir, folder)
@@ -89,7 +93,8 @@ class SimulationRepository(object):
                     params = param_file_to_dict(param_file)
                     complexity = params.get("complexity")
                     if "cosmos" in complexity:
-                        self.experiments.append(COSMOSExperiment(base_dir=folder, params=params))
+                        cosmos_run = COSMOSExperiment(base_dir=folder, params=params)
+                        cosmos_runs.append(cosmos_run)
                     else:
                         # FIXME: Maybe this should just default to the general RepoExperiment?
                         raise ParameterFileError(
@@ -97,6 +102,7 @@ class SimulationRepository(object):
                         )
                 else:
                     self.experiments.append(RepoExperiment(base_dir=folder))
+        self.cosmos = COSMOSCatalog(entry_list=cosmos_runs)
 
     def __repr__(self):
         return f"<SimulationRepository with {len(self.experiments)} experiments>"
@@ -124,7 +130,7 @@ class COSMOSExperiment(RepoExperiment):
             os.path.join(self.base_dir, self.expid + ".parameters")
         )
         self.original_output_dir = self.params["output"].copy()
-        self.entry_list = []
+        self._entries = {}
         for file_tag in [
             "echam5_main_mm",
             "echam5_wiso_mm",
@@ -140,8 +146,20 @@ class COSMOSExperiment(RepoExperiment):
                 if self.expid + "_" + file_tag in f
             ]
             logging.debug(f"Setting up: {file_tag}")
-            setattr(self, file_tag.replace("_mm", "_output"), flist)
-            self.entry_list.append(getattr(self, file_tag.replace("_mm", "_output")))
+            self._entries[file_tag] = intake.catalog.local.LocalCatalogEntry(
+                name=file_tag.replace("_mm", ""),
+                description=f"{file_tag.replace('_mm', '').replace('_', ' ')} files",
+                driver="netcdf",
+                direct_access=True,
+                args={
+                    "urlpath": flist,
+                    "xarray_kwargs": {
+                        "decode_times": False,
+                        "combine": "nested",
+                        "parallel": True,
+                    },
+                },
+            )
 
     def __repr__(self):
         return "<COSMOSExperiment expid=%s, base_dir=%s>" % (self.expid, self.base_dir)
@@ -149,16 +167,19 @@ class COSMOSExperiment(RepoExperiment):
 
 class COSMOSCatalog(intake.catalog.base.Catalog):
     def __init__(self, name=None, description=None, entry_list=None, *args, **kwargs):
-        self.entry_list = entry_list or []
+        super(COSMOSCatalog, self).__init__(*args, **kwargs)
+        entry_list = entry_list or []
         name = name or "cosmos_exps"
         description = (
             description
             or "COSMOS Experiments in the AWI Paleoclimate Dynamics Repository"
         )
-        super(COSMOSCatalog, self).__init__(*args, **kwargs)
-
-    def _load(self):
         self._entries = {}
-        for entry in self.entry_list:
+        for entry in entry_list:
             name = entry.expid
+            description = f"Comos Experiment {name}"
             metadata = entry.params
+
+            self._entries[name] = intake.catalog.local.LocalCatalogEntry(
+                name=name, description=description, metadata=metadata, driver="catalog",
+            )
