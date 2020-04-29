@@ -66,16 +66,22 @@ class SimulationRepository(object):
            ``scripts``, and ``executable`` folders must be defined.
     3. A "black-list" is applied. By default, this is an empty list. However,
        any directory listed here is excluded from the automatic sorting into
-       ``RepoExperiment`` objects.
+       ``RepoExperiment`` objects. It can also be passed in via the
+       environmental variable ESM_SIM_REPO_BLACK_LIST as a colon seperated list
+       of experiment IDs.
     """
 
-    def __init__(self, base_dir=None, black_list=[]):
+    def __init__(self, base_dir=None, black_list=None):
         if base_dir:
             self.base_dir = base_dir
         else:
             self.base_dir = os.environ.get(
                 "ESM_SIM_REPO_BASE_DIR", "/scratch/simulation_database/incoming/"
             )
+        if black_list is None:
+            env_black_list = os.environ.get("ESM_SIM_REPO_BLACK_LIST", "")
+            env_black_list = env_black_list.split(":")
+            black_list = [item for item in env_black_list if item]
         # Uncategorized experiments:
         self.experiments = []
         # Cosmos Experiments
