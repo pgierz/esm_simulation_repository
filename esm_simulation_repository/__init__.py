@@ -180,6 +180,7 @@ class COSMOSCatalog(intake.catalog.base.Catalog):
             description = f"Comos Experiment {name}"
             metadata = entry.params
 
-            self._entries[name] = intake.catalog.local.LocalCatalogEntry(
-                name=name, description=description, metadata=metadata, driver="catalog",
-            )
+            # self._entries[name] = intake.catalog.local.LocalCatalogEntry(
+            #    name=name, description=description, metadata=metadata, driver="catalog",
+            # )
+            self._entries[name] = entry

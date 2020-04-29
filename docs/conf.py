@@ -212,7 +212,7 @@ latex_documents = [
         u"ESM Simulation Repository Documentation",
         u"Paul Gierz",
         "manual",
-    ),
+    )
 ]
 
 # The name of an image file (relative to this directory) to place at
@@ -268,7 +268,7 @@ texinfo_documents = [
         "esm_simulation_repository",
         "One line description of project.",
         "Miscellaneous",
-    ),
+    )
 ]
 
 # Documents to append as an appendix to all manuals.
