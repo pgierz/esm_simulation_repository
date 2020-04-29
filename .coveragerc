@@ -1,0 +1,5 @@
+[report]
+omit =
+    setup.py
+    esm_simulation_repository/__main__.py
+    tests/*
