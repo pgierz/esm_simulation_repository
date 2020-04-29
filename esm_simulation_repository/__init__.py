@@ -10,7 +10,6 @@ __version__ = "0.1.0"
 # Python Standard Library Imports
 import logging
 import os
-import sys
 
 # Third-Party Imports
 import intake
@@ -162,7 +161,7 @@ class COSMOSExperiment(RepoExperiment):
             )
 
     def __repr__(self):
-        return "<COSMOSExperiment expid=%s, base_dir=%s>" % (self.expid, self.base_dir)
+        return f"<COSMOSExperiment expid={self.expid}, base_dir={self.base_dir}>"
 
 
 class COSMOSCatalog(intake.catalog.base.Catalog):
@@ -177,8 +176,8 @@ class COSMOSCatalog(intake.catalog.base.Catalog):
         self._entries = {}
         for entry in entry_list:
             name = entry.expid
-            description = f"Comos Experiment {name}"
-            metadata = entry.params
+            # description = f"Comos Experiment {name}"
+            # metadata = entry.params
 
             # self._entries[name] = intake.catalog.local.LocalCatalogEntry(
             #    name=name, description=description, metadata=metadata, driver="catalog",
