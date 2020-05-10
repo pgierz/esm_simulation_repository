@@ -88,5 +88,10 @@ dist: clean ## builds source and wheel package
 	python setup.py bdist_wheel
 	ls -l dist
 
+develop: clean ## install the package to the active Python's site-packages
+	python setup.py develop
+
+install: clean ## install the package to the active Python's site-packages
+	python setup.py install
 install: clean ## install the package to the active Python's site-packages
 	python setup.py install

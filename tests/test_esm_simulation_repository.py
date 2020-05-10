@@ -2,13 +2,21 @@
 # -*- coding: utf-8 -*-
 
 """Tests for `esm_simulation_repository` package."""
+import os
 
 import pytest
 
 from click.testing import CliRunner
 
-from esm_simulation_repository import esm_simulation_repository
 from esm_simulation_repository import cli
+from esm_simulation_repository import (
+    param_file_to_dict,
+    ParameterFileError,
+    SimulationRepository,
+)
+
+# TODO(PG) Fixup later:
+import esm_simulation_repository
 
 
 @pytest.fixture
@@ -27,6 +35,16 @@ def test_content(response):
     # assert 'GitHub' in BeautifulSoup(response.content).title.string
 
 
+def test_param_file_to_dict():
+    test_file = os.path.join(
+        os.path.abspath(os.path.dirname(__file__)), "conpi.parameters"
+    )
+    param_file_to_dict(test_file)
+    with pytest.raises(ParameterFileError):
+        test_file += "_bad"
+        param_file_to_dict(test_file)
+
+
 def test_command_line_interface():
     """Test the CLI."""
     runner = CliRunner()
@@ -36,3 +54,17 @@ def test_command_line_interface():
     help_result = runner.invoke(cli.main, ["--help"])
     assert help_result.exit_code == 0
     assert "--help  Show this message and exit." in help_result.output
+
+
+class TestSimulationRepo:
+    def setUp(self):
+        pass
+
+    def tearDown(self):
+        pass
+
+    def test_init(self, monkeypatch):
+        monkeypatch.setattr(
+            esm_simulation_repository, "ESM_SIM_REPO_BASE_DIR", "/dev/null"
+        )
+        SimulationRepository()

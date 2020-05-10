@@ -8,31 +8,83 @@ __version__ = "0.1.0"
 
 
 # Python Standard Library Imports
+import io
 import logging
 import os
 
 # Third-Party Imports
 import intake
 
+ESM_SIM_REPO_BASE_DIR = "/scratch/simulation_database/incoming/"
+"""
+str : The default simulation repository base directory that is used when
+constructing an SimulationRepository object.
+"""
+
 
 def param_file_to_dict(param_file):
+    """
+    Turns a parameter file (C. Stepanek's standard) into a dictionary.
+
+    Christian Stepanek has introduced a ``${EXPID}.parameters`` file to keep
+    track of what is in the simulation repository. This file includes important
+    information regarding the simulation configuration, original file paths,
+    and binaries. This function turns this file into a dictionary, and more
+    generally, can transform any file which contains a list of ``key: value``
+    items into a dictionary.
+
+    The following rules are applied:
+
+    * Each line in the file must have a ``":"``
+    * Left is the key, and, if present, right is the value. If there is no
+      value, it should result in a ``None`` value. Otherwise, right is a
+      ``str`` or ``list of str``
+    * If a key appears more than once, the value for that key is transformed to
+      a list, and the order of values for that list conform to the top-down order
+      in the file.
+
+    Parameters
+    ----------
+    param_file : str or filelike
+        The file to parse
+
+    Returns
+    -------
+    dict :
+        The dictionary representation of the file as described above.
+
+    Raises
+    ------
+    ParameterFileError :
+        Raised if the split between ``key: value`` does not work correctly.
+
+    TypeError :
+        Raised if you don't give a string or an object with ``readlines``.
+    """
     logging.debug("Loading params....")
     params = {}
-    with open(param_file, "r") as param_file_dat:
-        for line in param_file_dat.readlines():
-            line = line.strip()
-            logging.debug(line)
-            if line:
-                try:
-                    k, v = line.split(":", 1)
-                except ValueError:
-                    print("Couldn't split %s for for file %s" % (line, param_file))
-                    raise
-                v = v.replace(" ", "")
-                if k not in params:
-                    params[k] = [v]
-                else:
-                    params[k].append(v)
+    if isinstance(param_file, str):
+        with open(param_file, "r") as param_file_dat:
+            lines = param_file_dat.readlines()
+    elif isinstance(param_file, io.IOBase):
+        lines = param_file.readlines()
+    else:
+        raise TypeError("Argument ``'param_file'`` must be ``str`` or ``File``")
+    for line in lines:
+        line = line.strip()
+        logging.debug(line)
+        if line:
+            try:
+                k, v = line.split(":", 1)
+            except ValueError:
+                raise ParameterFileError(
+                    "Couldn't split %s for for file %s" % (line, param_file)
+                )
+            v = v.replace(" ", "")
+            if k not in params:
+                params[k] = [v]
+            else:
+                params[k].append(v)
     # PG: Purify the list -- if you have a single element list; just add the
     # entry directly to the key.
     for k, v in params.items():
@@ -42,7 +94,7 @@ def param_file_to_dict(param_file):
 
 
 class ParameterFileError(Exception):
-    pass
+    """Raise this error if the Parameter file has something unexpected"""
 
 
 class SimulationRepository(object):
@@ -54,16 +106,20 @@ class SimulationRepository(object):
     Generating this object can be configured via environmental variables. If
     the env. variable ``ESM_SIM_REPO_BASE_DIR`` is set; this is assumed to be
     the base directory. An argument passed to the object constructor superceeds
-    this. The hard-coded default is ``/scratch/simulation_database/incoming/``
+    this. The hard-coded default is taken from the module constants.
 
     The following is assumed:
 
     1. Every **directory** in ``base_dir`` is a simulation.
+
     2. Rules are applied to sort the ``base_dir`` into concrete sub-objects:
+
         a. If a file ``${EXPID}.parameters`` is found; the ``complexity`` in
            this file is used to determine which model is used.
+
         b. If no such file is found, at least ``input``, ``output``,
            ``scripts``, and ``executable`` folders must be defined.
+
     3. A "black-list" is applied. By default, this is an empty list. However,
        any directory listed here is excluded from the automatic sorting into
        ``RepoExperiment`` objects. It can also be passed in via the
@@ -76,7 +132,7 @@ class SimulationRepository(object):
             self.base_dir = base_dir
         else:
             self.base_dir = os.environ.get(
-                "ESM_SIM_REPO_BASE_DIR", "/scratch/simulation_database/incoming/"
+                "ESM_SIM_REPO_BASE_DIR", ESM_SIM_REPO_BASE_DIR
             )
         if black_list is None:
             env_black_list = os.environ.get("ESM_SIM_REPO_BLACK_LIST", "")
@@ -114,10 +170,52 @@ class SimulationRepository(object):
 
 
 class RepoExperiment(intake.catalog.base.Catalog):
-    def __init__(self, base_dir, **kwargs):
+    def __init__(self, base_dir, expid=None, **kwargs):
+        """
+        A representation of an experiment in the simulation repository.
+
+        Initialization requires the ``base_dir`` argument, which should point
+        to the top-level folder in the repository with this experiment's files.
+
+        The following attributes are assigned:
+
+        ``expid`` : The experiment ID is assumed to be the basename of the
+        ``base_dir`` argument. It can be over-ridden by passing
+        ``expid=<something>`` during object creation.
+
+        Currently, the following folders are automatically added as strings:
+
+        * ``executable_dir`` : Binaries for the various model components are
+          copied here
+
+        * ``input_dir`` : Any files required for model initialization are
+          copied here
+
+        * ``output_dir`` : Simulation results (normally **not** divided by
+          subfolders) are placed here.
+
+        * ``scripts_dir`` : Simulation scripts (typically run and post scripts)
+          are copied here.
+
+        After these attributes are set, the initialization routine of the base
+        class (``intake.catalog.base.Catalog``) is run.
+
+        Parameters
+        ----------
+
+        base_dir : str
+            The base directory for this particular experiment *in the
+            simulation repository*. Note that this should **not** be the
+            original base directory from the computing cluster!
+
+        expid : str
+            The experiment ID of this simulation, e.g. ``conpi``. Defaults to
+            ``None``, in which case it is extracted from the ``base_dir`` as
+            the basename.
+        """
         self.base_dir = base_dir if not base_dir.endswith("/") else base_dir[:-1]
 
-        self.expid = os.path.basename(self.base_dir)
+        self.expid = expid or os.path.basename(self.base_dir)
 
         self.executable_dir = os.path.join(self.base_dir, "executable")
         self.input_dir = os.path.join(self.base_dir, "input")
@@ -182,10 +280,4 @@ class COSMOSCatalog(intake.catalog.base.Catalog):
         self._entries = {}
         for entry in entry_list:
             name = entry.expid
-            # description = f"Comos Experiment {name}"
-            # metadata = entry.params
-
-            # self._entries[name] = intake.catalog.local.LocalCatalogEntry(
-            #    name=name, description=description, metadata=metadata, driver="catalog",
-            # )
             self._entries[name] = entry
