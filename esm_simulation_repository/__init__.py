@@ -11,8 +11,10 @@ __version__ = "0.1.0"
 import logging
 import os
 import sys
+import getpass
 
 # Third-Party Imports
+from atlassian import Confluence
 import intake
 
 
@@ -42,8 +44,18 @@ def param_file_to_dict(param_file):
     return params
 
 
+class SpacesExperimentTable(object):
+    """
+    Retrieves experiments from https://spaces.awi.de/pages/viewpage.action?pageId=290456136
+    """
+    def __init__(self):
+        user = input("Please enter your username for spaces.awi.de: ")
+        passwd = getpass.getpass("Please enter your password for spaces.awi.de: ")
+        self.confluence = Confluence(url="https://spaces.awi.de", username=user, password=passwd)
+
+
 class ParameterFileError(Exception):
-    pass
+    """Raise this error when the Parameter file has issues"""
 
 
 class SimulationRepository(object):
