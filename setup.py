@@ -11,8 +11,7 @@ with open("README.rst") as readme_file:
 with open("HISTORY.rst") as history_file:
     history = history_file.read()
 
-# requirements = ["Click>=6.0", "intake", "intake-xarray"]
-requirements = []
+requirements = ["Click>=6.0", "intake", "intake-xarray", "atlassian-python-api"]
 
 setup_requirements = ["pytest-runner"]
 
@@ -40,6 +39,7 @@ setup(
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
         "Natural Language :: English",
         "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
     ],
     test_suite="tests",

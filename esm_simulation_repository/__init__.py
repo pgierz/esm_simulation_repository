@@ -11,8 +11,11 @@ __version__ = "0.1.0"
 import io
 import logging
 import os
+import sys
+import getpass
 
 # Third-Party Imports
+from atlassian import Confluence
 import intake
 
 ESM_SIM_REPO_BASE_DIR = "/scratch/simulation_database/incoming/"
@@ -91,6 +94,19 @@ def param_file_to_dict(param_file):
         if len(v) == 1:
             params[k] = v[0]
     return params
+
+
+class SpacesExperimentTable(object):
+    """
+    Retrieves experiments from https://spaces.awi.de/pages/viewpage.action?pageId=290456136
+    """
+
+    def __init__(self):
+        user = input("Please enter your username for spaces.awi.de: ")
+        passwd = getpass.getpass("Please enter your password for spaces.awi.de: ")
+        self.confluence = Confluence(
+            url="https://spaces.awi.de", username=user, password=passwd
+        )
 
 
 class ParameterFileError(Exception):
