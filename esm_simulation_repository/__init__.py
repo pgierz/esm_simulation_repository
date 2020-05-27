@@ -17,12 +17,25 @@ import getpass
 # Third-Party Imports
 from atlassian import Confluence
 import intake
+import pandas as pd
 
 ESM_SIM_REPO_BASE_DIR = "/scratch/simulation_database/incoming/"
 """
 str : The default simulation repository base directory that is used when
 constructing an SimulationRepository object.
 """
+
+
+class Bunch(dict):
+    def __init__(self, **kw):
+        dict.__init__(self, kw)
+        self.__dict__.update(kw)
+
+    def __repr__(self):
+        state = [
+            "%s=%r" % (attribute, value) for (attribute, value) in self.__dict__.items()
+        ]
+        return "\n".join(state)
 
 
 def param_file_to_dict(param_file):
@@ -98,15 +111,53 @@ def param_file_to_dict(param_file):
 
 class SpacesExperimentTable(object):
     """
-    Retrieves experiments from https://spaces.awi.de/pages/viewpage.action?pageId=290456136
+    Retrieves experiments from AWI's Spaces_ page
+
+    For any HTML tables found in the Spaces_ page, pandas DataFrame objects are
+    generated and attached to the object with the table name.
+
+    .. _Spaces: https://spaces.awi.de/display/PD/Simulation+Management
     """
 
     def __init__(self):
         user = input("Please enter your username for spaces.awi.de: ")
         passwd = getpass.getpass("Please enter your password for spaces.awi.de: ")
-        self.confluence = Confluence(
+        confluence = Confluence(
             url="https://spaces.awi.de", username=user, password=passwd
         )
+        # Note that the first argument is the page ID, which can be obtained
+        # via the confluence web API, or extracted from the URL
+        simdb = confluence.get_page_by_id(144834694, expand="body.storage")
+        # Here, we need some "insider knowledge", the following cannot be
+        # easily obtained programmatically:
+
+        self._dfs = pd.read_html(simdb["body"]["storage"]["value"])
+
+        self._clean_up_attrs()
+
+    def _clean_up_attrs(self):
+        for df in self._dfs:
+            first_cell = df.keys()[0]
+            title = first_cell.replace(" ", "_").replace("/", "_")
+            df = df.set_index(first_cell)
+            df = df.dropna(how="all")
+            setattr(self, title, Bunch(df=df))
+            this_bunch = getattr(self, title)
+            if "simulation name" in this_bunch.df.keys():
+                for _, row in df.iterrows():
+                    sim_title = (
+                        row["simulation name"].replace(" ", "_").replace("-", "_")
+                    )
+                    if sim_title[0].isdigit():
+                        sim_title = "_" + sim_title
+                    setattr(this_bunch, sim_title, Bunch())
+                    this_bunch_exp = getattr(this_bunch, sim_title)
+                    for key, value in row.items():
+                        setattr(
+                            this_bunch_exp,
+                            key.replace(" ", "_").replace("(", "").replace(")", ""),
+                            value,
+                        )
 
 
 class ParameterFileError(Exception):
